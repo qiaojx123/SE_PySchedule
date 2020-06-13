@@ -7,14 +7,12 @@ ZJU software engeering scheduling - in python
 ## Auto Scheduling
 Use class Schedule like this:
 
-'''python
     sched = Schedule()
     sched.LessonsFromJsonFile("./autosched_lessons.json")
     sched.RoomsFromJsonFile("./autosched_rooms.json")
     sched.DoSchedule()
     print(json.dumps(sched.OutputRes()))
     #sched.DebugOutput()
-'''
 
 The sched.OutputRes() will return a key-value object which can be directly dump into json.
 
@@ -25,7 +23,6 @@ And it also contains three arries named by default as "rooms", "lessons" and "te
 ## Modifying
 Use class Modify like this:
 
-'''python
     modify = Modify()
     modify.RoomFromJsonFile("./modify_room.json")
     modify.LessonFromJsonFile("./modify_lesson.json")
@@ -34,7 +31,6 @@ Use class Modify like this:
 
     modify.DoModify()
     print(json.dumps(modify.OutputRes()))
-'''
 
 The modify.OutputRes() will return a key-value object which can be directly dump into json.
 
