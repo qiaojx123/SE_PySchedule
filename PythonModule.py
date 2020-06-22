@@ -1,33 +1,28 @@
 import json
 import random
 from operator import attrgetter
+import courseDB
+import requests
 
-LESSON_ID = "ID"
+LESSON_ID = "id"
 LESSON_TEACHERID = "teacher_ID"
 LESSON_CAPACITY = "cap"
-LESSON_TIME = "class_time"
 LESSON_DURATION = "length"
-LESSON_EXAMTIME = "exam_time"
-LESSON_POSITION = "position"
 
-ROOM_ID = "ID"
-ROOM_CAPACITY = "cap"
-ROOM_TIME = "room_time"
+ROOM_ID = "id"
+ROOM_CAPACITY = "size"
 
 TEACHER_ID = "ID"
 TEACHER_TIME = "teacher_time"
 
 STATE_SUCCESS = "success"
 STATE_INFO = "info"
-STATE_ROOMS = "rooms"
-STATE_LESSONS = "lessons"
-STATE_TEACHERS = "teachers"
 
-STATE_SINGLEROOM = "room"
-STATE_SINGLELESSON = "lesson"
-STATE_SINGLETEACHER = "teacher"
+MODIFY_COURSEID = "course_id"
+MODIFY_TARGETTIME = "target_time"
+MODIFY_ROOM = "classroom"
 
-MODIFY_TIME = "target_time"
+BASE_URL = "http://server.dydxh.cn:5000"
 
 def Count1s(num):
 	cnt = 0
@@ -66,10 +61,8 @@ class LessonInfo:
 		data = json.loads(jsonStr)
 		self.__classID = data[LESSON_ID]
 		self.__teacherID = data[LESSON_TEACHERID]
-		self.__classTime = data[LESSON_TIME]
 		self.__length = data[LESSON_DURATION]
 		self.capacity = data[LESSON_CAPACITY]
-		self.__examTime = data[LESSON_EXAMTIME]
 		return
 
 	def FromJsonFile(self,pathStr):
@@ -89,7 +82,9 @@ class LessonInfo:
 		return
 
 	def ModifyOutput(self):
-		jsonData = {LESSON_ID: self.__classID, LESSON_TIME: self.__classTime, LESSON_EXAMTIME: self.__examTime, LESSON_POSITION: self.__position }
+		#jsonData = {LESSON_ID: self.__classID, LESSON_TEACHERID: self.__teacherID,
+		#	 LESSON_POSITION: self.__position, LESSON_TIME: self.__classTime }
+		jsonData = [self.__classID, self.__teacherID, self.__position, self.__classTime]
 		return jsonData
 
 	def SetClassTime(self, time): self.__classTime = time
@@ -127,7 +122,6 @@ class RoomInfo:
 		data = json.loads(jsonStr)
 		self.__roomID = data[ROOM_ID]
 		self.capacity = data[ROOM_CAPACITY]
-		self.__useTime = data[ROOM_TIME]
 		return
 
 	def FromJsonFile(self, pathStr):
@@ -424,11 +418,7 @@ class Schedule:
 	__rooms = RoomList()
 	__teachers = []
 	__isSuccess = False
-
-	def __init__(self):
-		self.__rooms = RoomList()
-		self.__teachers = []
-		self.__isSuccess = False
+	__config = {}
 
 	def RoomsFromJsonFile(self, pathStr): self.__rooms.FromJsonFile(pathStr)
 	def RoomsFromJsonStr(self, jsonStr): self.__rooms.FromJsonStr(jsonStr)
@@ -476,31 +466,34 @@ class Schedule:
 		return
 
 	def DoSchedule(self):
-		self.ResetForSched()
-		self.__teachers.sort(reverse = True, key = attrgetter('lessonCnt'))
-		self.__rooms.Sort()
+		if self.__initFail != True:
+			self.ResetForSched()
+			self.__teachers.sort(reverse = True, key = attrgetter('lessonCnt'))
+			self.__rooms.Sort()
 
-		for i in range(len(self.__teachers)):
-			for j in range(len(self.__teachers[i].lessons)):
-				tmpSche = self.__rooms.AllocRoomFor(self.__teachers[i].GetBusyTime(),self.__teachers[i].lessons[j].GetLength(), self.__teachers[i].lessons[j].GetCapacity());
-				if tmpSche.GetClassTime()==0: return
-				self.__teachers[i].lessons[j].SetPosition(tmpSche.GetPosition())
-				self.__teachers[i].lessons[j].SetClassTime(tmpSche.GetClassTime())
-				self.__teachers[i].SetBusyTime(self.__teachers[i].GetBusyTime()|tmpSche.GetClassTime())
-		self.__isSuccess = True
+			for i in range(len(self.__teachers)):
+				for j in range(len(self.__teachers[i].lessons)):
+					tmpSche = self.__rooms.AllocRoomFor(self.__teachers[i].GetBusyTime(),self.__teachers[i].lessons[j].GetLength(), self.__teachers[i].lessons[j].GetCapacity());
+					if tmpSche.GetClassTime()==0: return
+					self.__teachers[i].lessons[j].SetPosition(tmpSche.GetPosition())
+					self.__teachers[i].lessons[j].SetClassTime(tmpSche.GetClassTime())
+					self.__teachers[i].SetBusyTime(self.__teachers[i].GetBusyTime()|tmpSche.GetClassTime())
+			self.__isSuccess = True
 		return
 
 	def IsScheduleSuccess(self): return self.__isSuccess
 
+	# return an object with success/fail info
+	# write to database if success
 	def OutputRes(self):
-		if self.__isSuccess!=True:
+		if self.__initFail:
+			res = {STATE_SUCCESS: False, STATE_INFO: self.__info}
+		elif self.__isSuccess!=True:
 			res = {STATE_SUCCESS: False, STATE_INFO: "Failed scheduling. If this continues happening, there may be too many lessons."}
 		else:
-			roomModify = self.__rooms.GetRoomModify()
 			lessonModify = self.GetLessonModify()
-			teacherModify = self.GetTeacherModify()
-			res = {STATE_SUCCESS: True, STATE_INFO: "Succeed scheduling.", STATE_ROOMS: roomModify,
-				STATE_LESSONS: lessonModify, STATE_TEACHERS: teacherModify}
+			self.__db.insertArrangeData(lessonModify)
+			res = {STATE_SUCCESS: True, STATE_INFO: "Succeed scheduling."}
 
 		return res
 
@@ -508,39 +501,42 @@ class Schedule:
 		for i in range(len(self.__teachers)):
 			self.__teachers[i].OutputSchedule()
 		return
+	
+	# token: The login token of basic group
+	# db_config: an object for connecting to the db. view courseDB for detail.
+	# server_url: the DB server's url.
+	def __init__(self, token, db_config, server_url='http://localhost'):
+		self.__rooms = RoomList()
+		self.__teachers = []
+		self.__isSuccess = False
+		self.__token = token
+		self.__initFail = False
+		self.__info = ""
+		try:
+			self.__db = courseDB.course_arrange_db(db_config, server_url)
+			#InitLessons
+			#self.LessonsFromJsonFile("./autosched_lessons.json")
+			headers = {'token':self.__token,'magic':'sbsewcnm'}
+			r = requests.get(BASE_URL+'/course/all',headers=headers)
 
+			response = json.loads(r.text)
+			self.LessonsFromJsonStr(json.dumps(response))
+
+			#InitRooms
+			#return a list of objects
+			classrooms = self.__db.queryClassroom()
+			self.RoomsFromJsonStr(json.dumps(classrooms))
+		except Exception as e:
+			self.__initFail = True
+			self.__info = str(e)
+		else:
+			self.__initFail = False
+			self.__info = "Function Schedule is not called."
+'''
 class Modify:
 	__targetTime = 0
-	__room = RoomInfo()
-	__lesson = LessonInfo()
-	__teacher = TeacherInfo()
 	__isSuccess = False
 	__info = "The modify func is not called."
-
-	def __init__(self):
-		__targetTime = 0
-		__room = RoomInfo()
-		__lesson = LessonInfo()
-		__teacher = TeacherInfo()
-		__isSuccess = False
-		__info = "The modify func is not called."
-
-	def RoomFromJsonFile(self,pathStr): self.__room.FromJsonFile(pathStr)
-	def RoomFromJsonStr(self,jsonStr): self.__room.FromJsonStr(jsonStr)
-	def LessonFromJsonFile(self,pathStr): self.__lesson.FromJsonFile(pathStr)
-	def LessonFromJsonStr(self,jsonStr): self.__lesson.FromJsonStr(jsonStr)
-	def TeacherFromJsonFile(self,pathStr): self.__teacher.FromJsonFile(pathStr)
-	def TeacherFromJsonStr(self,jsonStr): self.__teacher.FromJsonStr(jsonStr)
-
-	def TargetTimeFromJsonStr(self,jsonStr):
-		jsonData = json.loads(jsonStr)
-		self.__targetTime = jsonData[MODIFY_TIME]
-		return
-
-	def TargetTimeFromJsonFile(self,pathStr):
-		with open(pathStr,'r') as fin:
-			buf = fin.read()
-		self.TargetTimeFromJsonStr(buf)
 
 	def DoModify(self):
 		roomTime = self.__room.GetUseTime()
@@ -577,18 +573,39 @@ class Modify:
 				STATE_SINGLELESSON: lessonModify, STATE_SINGLETEACHER: teacherModify}
 		return res
 	
-sched = Schedule()
-sched.LessonsFromJsonFile("./autosched_lessons.json")
-sched.RoomsFromJsonFile("./autosched_rooms.json")
+	# params should be a json or python object that includes:
+	# MODIFY_COURSEID: integer //The id of the course to modify
+	# MODIFY_TARGETTIME: integer(128bit) //The target time
+	# MODIFY_ROOM: integer //The classroom's ID
+	def __init__(self, params, db_config, server_url='http://localhost' ):
+		try:
+			self.__db = courseDB.course_arrange_db(db_config, server_url)
+			self.__targetTime = params[MODIFY_TARGETTIME]
+			self.__roomID = params[MODIFY_ROOM]
+			self.__roomTime = self.__db.queryClassroomOccupiedTime(self.__roomID)
+			self.__teacherTime = self.__db.queryTeacherOccupiedTime()
+
+			__isSuccess = False
+			__info = "The modify func is not called."
+
+		except Exception as e:
+			raise e
+'''
+
+headers = {'magic':'sbsewcnm'}
+data = {'username': 'admin', 'password': '123456'}
+r = requests.post(BASE_URL+'/login',headers=headers,json=data)
+response = json.loads(r.text)
+token = response['token']
+db_config ={ "host":"localhost", "user":"root", "passwd":"root", "db":"resourcemanager"}
+
+sched = Schedule(token,db_config,'http://localhost')
 sched.DoSchedule()
-print(json.dumps(sched.OutputRes()))
+res = sched.OutputRes();
+print(json.dumps(res))
 sched.DebugOutput()
 
-modify = Modify()
-modify.RoomFromJsonFile("./modify_room.json")
-modify.LessonFromJsonFile("./modify_lesson.json")
-modify.TeacherFromJsonFile("./modify_teacher.json")
-modify.TargetTimeFromJsonFile("./modify_time.json")
-
-modify.DoModify()
-print(json.dumps(modify.OutputRes()))
+#params = {MODIFY_COURSEID:5,MODIFY_TARGETTIME:7392,MODIFY_ROOM:1}
+#modify = Modify(params,db_config,'http://localhost')
+#modify.DoModify()
+#print(json.dumps(modify.OutputRes()))
