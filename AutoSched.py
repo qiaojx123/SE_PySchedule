@@ -479,7 +479,7 @@ class Schedule:
 					self.__teachers[i].lessons[j].SetClassTime(tmpSche.GetClassTime())
 					self.__teachers[i].SetBusyTime(self.__teachers[i].GetBusyTime()|tmpSche.GetClassTime())
 			self.__isSuccess = True
-		return
+		return self.OutputRes()
 
 	def IsScheduleSuccess(self): return self.__isSuccess
 
@@ -577,19 +577,83 @@ class Schedule:
 		else:
 			self.__initFail = False
 			self.__info = "Function Schedule is not called."
-			
-#headers = {'magic':'sbsewcnm'}
-#data = {'username': 'admin', 'password': '123456'}
-#r = requests.post(BASE_URL+'/login',headers=headers,json=data)
-#response = json.loads(r.text)
-#token = response['token']
-#db_config ={ "host":"localhost", "user":"root", "passwd":"root", "db":"resourcemanager"}
+'''
+class Modify:
+	__targetTime = 0
+	__isSuccess = False
+	__info = "The modify func is not called."
 
-#sched = Schedule(token,db_config,'http://localhost')
-#print(sched.GetUserName(1))
-#print(sched.GetCourseName(1))
+	def DoModify(self):
+		roomTime = self.__room.GetUseTime()
+		curLessonTime = self.__lesson.GetClassTime()
+		teacherTime = self.__teacher.GetBusyTime()
 
-#sched.DoSchedule()
-#res = sched.OutputRes();
-#print(json.dumps(res))
-#sched.DebugOutput()
+		roomTime = roomTime & ~curLessonTime
+		teacherTime = teacherTime & ~curLessonTime
+
+		if roomTime&self.__targetTime !=0:
+			self.__info = "There are other lessons in the classroom on the target time."
+			return
+		elif teacherTime&self.__targetTime!=0:
+			self.__info = "The teacher has other lessons on the target time."
+			return
+		elif Count1s(self.__targetTime)!=Count1s(curLessonTime):
+			self.__info = "The lesson's length should not be changed."
+			return
+
+		self.__isSuccess = True
+		self.__room.SetUseTime(roomTime|self.__targetTime)
+		self.__lesson.SetClassTime(self.__targetTime)
+		self.__teacher.SetBusyTime(teacherTime|self.__targetTime)
+		return
+
+	def OutputRes(self):
+		if self.__isSuccess!=True:
+			res = {STATE_SUCCESS : False, STATE_INFO : self.__info}
+		else:
+			roomModify = self.__room.ModifyOutput()
+			lessonModify = self.__lesson.ModifyOutput()
+			teacherModify = self.__teacher.ModifyOutput()
+			res = {STATE_SUCCESS: True, STATE_INFO: "Succeed modifying", STATE_SINGLEROOM: roomModify,
+				STATE_SINGLELESSON: lessonModify, STATE_SINGLETEACHER: teacherModify}
+		return res
+	
+	# params should be a json or python object that includes:
+	# MODIFY_COURSEID: integer //The id of the course to modify
+	# MODIFY_TARGETTIME: integer(128bit) //The target time
+	# MODIFY_ROOM: integer //The classroom's ID
+	def __init__(self, params, db_config, server_url='http://localhost' ):
+		try:
+			self.__db = courseDB.course_arrange_db(db_config, server_url)
+			self.__targetTime = params[MODIFY_TARGETTIME]
+			self.__roomID = params[MODIFY_ROOM]
+			self.__roomTime = self.__db.queryClassroomOccupiedTime(self.__roomID)
+			self.__teacherTime = self.__db.queryTeacherOccupiedTime()
+
+			__isSuccess = False
+			__info = "The modify func is not called."
+
+		except Exception as e:
+			raise e
+'''
+
+headers = {'magic':'sbsewcnm'}
+data = {'username': 'admin', 'password': '123456'}
+r = requests.post(BASE_URL+'/login',headers=headers,json=data)
+response = json.loads(r.text)
+token = response['token']
+db_config ={ "host":"localhost", "user":"root", "passwd":"root", "db":"resourcemanager"}
+
+sched = Schedule(token,db_config,'http://localhost')
+print(sched.GetUserName(1))
+print(sched.GetCourseName(1))
+
+sched.DoSchedule()
+res = sched.OutputRes();
+print(json.dumps(res))
+sched.DebugOutput()
+
+#params = {MODIFY_COURSEID:5,MODIFY_TARGETTIME:7392,MODIFY_ROOM:1}
+#modify = Modify(params,db_config,'http://localhost')
+#modify.DoModify()
+#print(json.dumps(modify.OutputRes()))
