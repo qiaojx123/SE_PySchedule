@@ -7,35 +7,52 @@ ZJU software engeering scheduling - in python
 **All classes contains methods for reading from both file and string.**
 
 ## Auto Scheduling
-Use class Schedule like this:
+### Init the Schedule class:
 
-    sched = Schedule()
-    sched.LessonsFromJsonFile("./autosched_lessons.json")
-    sched.RoomsFromJsonFile("./autosched_rooms.json")
-    sched.DoSchedule()
-    print(json.dumps(sched.OutputRes()))
-    #sched.DebugOutput()
+    autosched = Schedule(token,db_config,'http://localhost')
 
-The sched.OutputRes() will return a key-value object which can be directly dump into json.
+- The first parameter token is for visiting the base-info group's api. The token is generated when the user logged in.
+- The second parameter db_config is the config used for connecting database.
+- The third parameter is the url used for visiting database. Get more detailed info from database api.
 
-This contains a value with key "success" indicating whether it succeeded or failed, and "info" indicating the success or error info.
+For example, the three token can be initialized as:
 
-And it also contains three arries named by default as "rooms", "lessons" and "teachers", which contains the data need to be changed in the database.
+    #Get token
+    headers = {'magic':'sbsewcnm'}
+    data = {'username': 'admin', 'password': '123456'}
+    r = requests.post(BASE_URL+'/login',headers=headers,json=data)
+    response = json.loads(r.text)
+    token = response['token']
+    
+    #db_config
+    db_config ={ "host":"localhost", "user":"root", "passwd":"root", "db":"resourcemanager"}
+    
+    #url
+    url = "http://localhost"
+    
+### Auto scheduling
+Call function DoSchedule:
 
+    autosched.DoSchedule()
+
+This will try to automatically schedule the courses.
+
+AFTER THIS, call OutputRes() to write the data into database and get the infomation whether the scheduling process is success.
+
+    res = autosched.OutputRes()
+    #res[STATE_SUCCESS] - True or False, whether the scheduling is successful
+    #res[STATE_INFO] - 'Succeed scheduling.' or the reason of failing.
+    
+Note that writing back to database is done in OutputRes() and need no other function call.
+### Get username or coursename
+AFTER INITIALIZING THE CLASS:
+
+    userRes = autosched.GetUserName(1)
+    #userRes[STATE_SUCCESS] - True or False, whether successful
+    #userRes[STATE_INFO] - string, username when success, fail info when fail
+    
+    courseRes = autosched.GetCourseName(1)
+    #courseRes[STATE_SUCCESS] - True or False, whether successful
+    #courseRes[STATE_INFO] - string, coursename when success, fail info when fail
 ## Modifying
-Use class Modify like this:
-
-    modify = Modify()
-    modify.RoomFromJsonFile("./modify_room.json")
-    modify.LessonFromJsonFile("./modify_lesson.json")
-    modify.TeacherFromJsonFile("./modify_teacher.json")
-    modify.TargetTimeFromJsonFile("./modify_time.json")
-
-    modify.DoModify()
-    print(json.dumps(modify.OutputRes()))
-
-The modify.OutputRes() will return a key-value object which can be directly dump into json.
-
-This contains a value with key "success" indicating whether it succeeded or failed, and "info" indicating the success or error info.
-
-And it also contains three arries named by default as "room", "lesson" and "teacher", which contains the data need to be changed in the database. **Note that these keys are different from that in auto scheduling whose keys are in plural form.**
+Directly use the database's api to do modify.
