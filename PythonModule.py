@@ -502,6 +502,51 @@ class Schedule:
 			self.__teachers[i].OutputSchedule()
 		return
 	
+	# Takes a userid as parameter, return a object with whether success and info.
+	# ret[STATE_SUCCESS] - whether the query is success
+	# ret[STATE_INFO] - username when success, fail info when fail.
+	def GetUserName(self, userid):
+		ret = {STATE_SUCCESS:False,STATE_INFO:''}
+		try:
+			headers = {'token':self.__token,'magic':'sbsewcnm'}
+			r = requests.get(BASE_URL+'/user/' + str(userid),headers=headers)
+			if(r.status_code==500):
+				raise Exception('User not exist.')
+			if(r.status_code!=200):
+				raise Exception('HTTP'+str(r.status_code))
+			data = json.loads(r.text)
+			ret[STATE_SUCCESS] = True
+			ret[STATE_INFO] = data['username']
+			return ret
+
+		except Exception as e:
+			ret[STATE_SUCCESS]=False
+			ret[STATE_INFO]=str(e)
+			return ret
+
+	# Takes a courseid as parameter, return a object with whether success and info.
+	# ret[STATE_SUCCESS] - whether the query is success
+	# ret[STATE_INFO] - coursename when success, fail info when fail.
+	def GetCourseName(self, courseid):
+		ret = {STATE_SUCCESS:False,STATE_INFO:''}
+		try:
+			headers = {'token':self.__token,'magic':'sbsewcnm'}
+			r = requests.get(BASE_URL+'/course/' + str(courseid),headers=headers)
+			if(r.status_code==500):
+				raise Exception('Course not exist.')
+			if(r.status_code!=200):
+				raise Exception('HTTP'+str(r.status_code))
+			data = json.loads(r.text)
+			ret[STATE_SUCCESS] = True
+			ret[STATE_INFO] = data['name']
+			return ret
+
+		except Exception as e:
+			ret[STATE_SUCCESS]=False
+			ret[STATE_INFO]=str(e)
+			return ret
+
+
 	# token: The login token of basic group
 	# db_config: an object for connecting to the db. view courseDB for detail.
 	# server_url: the DB server's url.
@@ -600,6 +645,9 @@ token = response['token']
 db_config ={ "host":"localhost", "user":"root", "passwd":"root", "db":"resourcemanager"}
 
 sched = Schedule(token,db_config,'http://localhost')
+print(sched.GetUserName(1))
+print(sched.GetCourseName(1))
+
 sched.DoSchedule()
 res = sched.OutputRes();
 print(json.dumps(res))
