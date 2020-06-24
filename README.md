@@ -4,11 +4,11 @@ ZJU software engeering scheduling - in python
 ## Auto Scheduling
 ### Import classes
 
-    import PythonModule
+    import AutoSched
 
 ### Init the Schedule class:
 
-    autosched = PythonModule.Schedule(token,db_config,'http://localhost')
+    autosched = AutoSched.Schedule(token,db_config,'http://localhost')
 
 - The first parameter token is for visiting the base-info group's api. The token is generated when the user logged in.
 - The second parameter db_config is the config used for connecting database.
@@ -39,19 +39,19 @@ This will try to automatically schedule the courses.
 AFTER THIS, call OutputRes() to write the data into database and get the infomation whether the scheduling process is success.
 
     res = autosched.OutputRes()
-    #res[PythonModule.STATE_SUCCESS] - True or False, whether the scheduling is successful
-    #res[PythonModule.STATE_INFO] - 'Succeed scheduling.' or the reason of failing.
+    #res[AutoSched.STATE_SUCCESS] - True or False, whether the scheduling is successful
+    #res[AutoSched.STATE_INFO] - 'Succeed scheduling.' or the reason of failing.
     
 Note that writing back to database is done in OutputRes() and need no other function call.
 ### Get username or coursename
 AFTER INITIALIZING THE CLASS:
 
     userRes = autosched.GetUserName(1)
-    #userRes[PythonModule.STATE_SUCCESS] - True or False, whether successful
-    #userRes[PythonModule.STATE_INFO] - string, username when success, fail info when fail
+    #userRes[AutoSched.STATE_SUCCESS] - True or False, whether successful
+    #userRes[AutoSched.STATE_INFO] - string, username when success, fail info when fail
     
     courseRes = autosched.GetCourseName(1)
-    #courseRes[PythonModule.STATE_SUCCESS] - True or False, whether successful
-    #courseRes[PythonModule.STATE_INFO] - string, coursename when success, fail info when fail
+    #courseRes[AutoSched.STATE_SUCCESS] - True or False, whether successful
+    #courseRes[AutoSched.STATE_INFO] - string, coursename when success, fail info when fail
 ## Modifying
 Directly use the database's api to do modify.
