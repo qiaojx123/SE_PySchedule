@@ -1,11 +1,6 @@
 # SE_PySchedule
 ZJU software engeering scheduling - in python
 
-## Note
-**You can always change the json's key by editing the global vars at the beginning of the python file.**
-
-**All classes contains methods for reading from both file and string.**
-
 ## Auto Scheduling
 ### Init the Schedule class:
 
