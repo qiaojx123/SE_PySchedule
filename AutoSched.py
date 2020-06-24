@@ -466,6 +466,7 @@ class Schedule:
 		return
 
 	def DoSchedule(self):
+		self.__isSuccess = False
 		if self.__initFail != True:
 			self.ResetForSched()
 			self.__teachers.sort(reverse = True, key = attrgetter('lessonCnt'))
@@ -474,7 +475,7 @@ class Schedule:
 			for i in range(len(self.__teachers)):
 				for j in range(len(self.__teachers[i].lessons)):
 					tmpSche = self.__rooms.AllocRoomFor(self.__teachers[i].GetBusyTime(),self.__teachers[i].lessons[j].GetLength(), self.__teachers[i].lessons[j].GetCapacity());
-					if tmpSche.GetClassTime()==0: return
+					if tmpSche.GetClassTime()==0: return self.OutputRes()
 					self.__teachers[i].lessons[j].SetPosition(tmpSche.GetPosition())
 					self.__teachers[i].lessons[j].SetClassTime(tmpSche.GetClassTime())
 					self.__teachers[i].SetBusyTime(self.__teachers[i].GetBusyTime()|tmpSche.GetClassTime())
